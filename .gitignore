@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+*.swp
+
+# Build artifacts
+WeChatShot.app/
+dist/
+Resources/AppIcon.iconset/
+build/
+.build/
