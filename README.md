@@ -72,3 +72,14 @@ open /Applications/WeChatShot.app
 ## 📄 开源协议
 
 本项目基于 [MIT License](LICENSE) 开源。
+
+---
+
+## ☕ 赞赏与支持
+
+如果这款工具对您有所帮助，欢迎扫码赞赏支持作者继续维护更新：
+
+<p align="left">
+  <img src="Resources/wechat.jpg" alt="微信赞赏码" width="260" />
+</p>
+
