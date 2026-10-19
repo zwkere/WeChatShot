@@ -2,17 +2,112 @@ import Cocoa
 import Carbon
 import ServiceManagement
 
+// MARK: - Preset Global Shortcuts
+enum ShortcutPreset: String, CaseIterable {
+    case optionZ      = "opt_z"       // Default: ⌥Z (Option + Z)
+    case optionA      = "opt_a"       // WeChat default: ⌥A (Option + A)
+    case ctrlCmdA     = "ctrl_cmd_a"  // Classic: ⌃⌘A (Control + Command + A)
+    case shiftCmdA    = "shift_cmd_a" // ⇧⌘A (Shift + Command + A)
+    case shiftCmdX    = "shift_cmd_x" // ⇧⌘X (Shift + Command + X)
+    case optionS      = "opt_s"       // ⌥S (Option + S)
+
+    var shortLabel: String {
+        switch self {
+        case .optionZ:   return "⌥Z"
+        case .optionA:   return "⌥A"
+        case .ctrlCmdA:  return "⌃⌘A"
+        case .shiftCmdA: return "⇧⌘A"
+        case .shiftCmdX: return "⇧⌘X"
+        case .optionS:   return "⌥S"
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .optionZ:   return "⌥Z (Option + Z) — 默认"
+        case .optionA:   return "⌥A (Option + A) — 微信经典"
+        case .ctrlCmdA:  return "⌃⌘A (Ctrl + Cmd + A)"
+        case .shiftCmdA: return "⇧⌘A (Shift + Cmd + A)"
+        case .shiftCmdX: return "⇧⌘X (Shift + Cmd + X)"
+        case .optionS:   return "⌥S (Option + S)"
+        }
+    }
+
+    var carbonKeyCode: UInt32 {
+        switch self {
+        case .optionZ:                     return UInt32(kVK_ANSI_Z)
+        case .optionA, .ctrlCmdA, .shiftCmdA: return UInt32(kVK_ANSI_A)
+        case .shiftCmdX:                   return UInt32(kVK_ANSI_X)
+        case .optionS:                     return UInt32(kVK_ANSI_S)
+        }
+    }
+
+    var carbonModifiers: UInt32 {
+        switch self {
+        case .optionZ, .optionA, .optionS:
+            return UInt32(optionKey)
+        case .ctrlCmdA:
+            return UInt32(controlKey | cmdKey)
+        case .shiftCmdA, .shiftCmdX:
+            return UInt32(shiftKey | cmdKey)
+        }
+    }
+
+    var menuKeyEquivalent: String {
+        switch self {
+        case .optionZ:                     return "z"
+        case .optionA, .ctrlCmdA, .shiftCmdA: return "a"
+        case .shiftCmdX:                   return "x"
+        case .optionS:                     return "s"
+        }
+    }
+
+    var menuModifierMask: NSEvent.ModifierFlags {
+        switch self {
+        case .optionZ, .optionA, .optionS:
+            return [.option]
+        case .ctrlCmdA:
+            return [.control, .command]
+        case .shiftCmdA, .shiftCmdX:
+            return [.shift, .command]
+        }
+    }
+}
+
 final class HotKeyManager {
     static let shared = HotKeyManager()
 
-    var onTriggerScreenshot: (() -> Void)?
+    private let userDefaultsKey = "WeChatShot.ShortcutPreset"
 
-    private var hotKeyRefOptZ: EventHotKeyRef?
+    var onTriggerScreenshot: (() -> Void)?
+    var onPresetChanged: ((ShortcutPreset) -> Void)?
+
+    private var hotKeyRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
 
-    private init() {}
+    private(set) var currentPreset: ShortcutPreset
+
+    private init() {
+        if let savedRaw = UserDefaults.standard.string(forKey: userDefaultsKey),
+           let preset = ShortcutPreset(rawValue: savedRaw) {
+            self.currentPreset = preset
+        } else {
+            self.currentPreset = .optionZ // Default remains Option + Z
+        }
+    }
+
+    func setPreset(_ preset: ShortcutPreset) {
+        currentPreset = preset
+        UserDefaults.standard.set(preset.rawValue, forKey: userDefaultsKey)
+        registerCurrentHotKey()
+        onPresetChanged?(preset)
+    }
 
     func registerDefaultHotKeys() {
+        registerCurrentHotKey()
+    }
+
+    func registerCurrentHotKey() {
         unregisterAll()
 
         var eventType = EventTypeSpec(
@@ -49,16 +144,21 @@ final class HotKeyManager {
             &eventHandlerRef
         )
 
-        // Option + Z (kVK_ANSI_Z = 0x06)
-        let id1 = EventHotKeyID(signature: OSType(0x57435354), id: 1)
-        let mods1 = UInt32(optionKey)
-        RegisterEventHotKey(UInt32(kVK_ANSI_Z), mods1, id1, GetApplicationEventTarget(), 0, &hotKeyRefOptZ)
+        let hotKeyID = EventHotKeyID(signature: OSType(0x57435354), id: 1)
+        RegisterEventHotKey(
+            currentPreset.carbonKeyCode,
+            currentPreset.carbonModifiers,
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &hotKeyRef
+        )
     }
 
     func unregisterAll() {
-        if let ref = hotKeyRefOptZ {
+        if let ref = hotKeyRef {
             UnregisterEventHotKey(ref)
-            hotKeyRefOptZ = nil
+            hotKeyRef = nil
         }
         if let handler = eventHandlerRef {
             RemoveEventHandler(handler)
@@ -89,7 +189,6 @@ final class LaunchAtLoginManager {
         try? fm.createDirectory(at: agentsDir, withIntermediateDirectories: true)
 
         if enabled {
-            // Prefer /Applications/WeChatShot.app if installed there, otherwise current bundle executable
             let appExecPath: String
             let appsPath = "/Applications/WeChatShot.app/Contents/MacOS/WeChatShot"
             if fm.fileExists(atPath: appsPath) {

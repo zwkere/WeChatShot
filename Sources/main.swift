@@ -2,6 +2,10 @@ import Cocoa
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
+    private var shotMenuItem: NSMenuItem!
+    private var appMenuShotItem: NSMenuItem!
+    private var shortcutParentMenuItem: NSMenuItem!
+    private var shortcutSubmenuItems: [ShortcutPreset: NSMenuItem] = [:]
     private var pinMenuItem: NSMenuItem!
     private var launchAtLoginMenuItem: NSMenuItem!
 
@@ -11,6 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         HotKeyManager.shared.onTriggerScreenshot = {
             ScreenshotCoordinator.shared.startScreenshot()
+        }
+        HotKeyManager.shared.onPresetChanged = { [weak self] preset in
+            self?.syncShortcutMenuState(with: preset)
+            MainWindowController.shared.refreshShortcutSelection()
         }
         HotKeyManager.shared.registerDefaultHotKeys()
 
@@ -42,6 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupStatusBarItem() {
+        let current = HotKeyManager.shared.currentPreset
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
             let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
@@ -51,21 +61,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 button.title = "✂️"
             }
-            button.toolTip = "WeChatShot 微信风格截图 (⌥Z)"
+            button.toolTip = "WeChatShot 微信风格截图 (\(current.shortLabel))"
         }
 
         let menu = NSMenu(title: "WeChatShot")
 
-        let shotItem = NSMenuItem(title: "开始截图", action: #selector(triggerScreenshot), keyEquivalent: "z")
-        shotItem.keyEquivalentModifierMask = [.option]
-        shotItem.target = self
-        menu.addItem(shotItem)
+        shotMenuItem = NSMenuItem(
+            title: "开始截图",
+            action: #selector(triggerScreenshot),
+            keyEquivalent: current.menuKeyEquivalent
+        )
+        shotMenuItem.keyEquivalentModifierMask = current.menuModifierMask
+        shotMenuItem.target = self
+        menu.addItem(shotMenuItem)
 
         let delayItem = NSMenuItem(title: "延时 3 秒截图", action: #selector(triggerDelayedScreenshot), keyEquivalent: "")
         delayItem.target = self
         menu.addItem(delayItem)
 
         menu.addItem(.separator())
+
+        // Shortcut Presets Submenu
+        let shortcutMenu = NSMenu(title: "截图快捷键")
+        shortcutSubmenuItems.removeAll()
+        for preset in ShortcutPreset.allCases {
+            let item = NSMenuItem(title: preset.displayName, action: #selector(handleSelectShortcutFromMenu(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = preset.rawValue
+            item.state = (preset == current) ? .on : .off
+            shortcutMenu.addItem(item)
+            shortcutSubmenuItems[preset] = item
+        }
+        shortcutParentMenuItem = NSMenuItem(title: "快捷键设置 (\(current.shortLabel))", action: nil, keyEquivalent: "")
+        shortcutParentMenuItem.submenu = shortcutMenu
+        menu.addItem(shortcutParentMenuItem)
 
         pinMenuItem = NSMenuItem(title: "关闭全部贴图 (0)", action: #selector(closeAllPins), keyEquivalent: "")
         pinMenuItem.target = self
@@ -89,7 +118,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
     }
 
+    private func syncShortcutMenuState(with preset: ShortcutPreset) {
+        statusItem?.button?.toolTip = "WeChatShot 微信风格截图 (\(preset.shortLabel))"
+        shotMenuItem?.keyEquivalent = preset.menuKeyEquivalent
+        shotMenuItem?.keyEquivalentModifierMask = preset.menuModifierMask
+        appMenuShotItem?.keyEquivalent = preset.menuKeyEquivalent
+        appMenuShotItem?.keyEquivalentModifierMask = preset.menuModifierMask
+        shortcutParentMenuItem?.title = "快捷键设置 (\(preset.shortLabel))"
+
+        for (p, item) in shortcutSubmenuItems {
+            item.state = (p == preset) ? .on : .off
+        }
+    }
+
     private func setupApplicationMainMenu() {
+        let current = HotKeyManager.shared.currentPreset
         let mainMenu = NSMenu()
 
         // App Menu
@@ -98,10 +141,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "关于 WeChatShot", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        let shotItem = NSMenuItem(title: "开始截图", action: #selector(triggerScreenshot), keyEquivalent: "z")
-        shotItem.keyEquivalentModifierMask = [.option]
-        shotItem.target = self
-        appMenu.addItem(shotItem)
+        appMenuShotItem = NSMenuItem(
+            title: "开始截图",
+            action: #selector(triggerScreenshot),
+            keyEquivalent: current.menuKeyEquivalent
+        )
+        appMenuShotItem.keyEquivalentModifierMask = current.menuModifierMask
+        appMenuShotItem.target = self
+        appMenu.addItem(appMenuShotItem)
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "隐藏 WeChatShot", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(withTitle: "退出 WeChatShot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -121,6 +168,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenuItem.submenu = editMenu
 
         NSApp.mainMenu = mainMenu
+    }
+
+    @objc private func handleSelectShortcutFromMenu(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let preset = ShortcutPreset(rawValue: raw) else { return }
+        HotKeyManager.shared.setPreset(preset)
     }
 
     @objc private func triggerScreenshot() {
@@ -144,6 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openControlPanel() {
         MainWindowController.shared.refreshPermissionStatus()
         MainWindowController.shared.refreshLaunchAtLoginState()
+        MainWindowController.shared.refreshShortcutSelection()
         MainWindowController.shared.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
         MainWindowController.shared.window?.makeKeyAndOrderFront(nil)

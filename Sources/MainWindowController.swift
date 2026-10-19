@@ -3,6 +3,8 @@ import Cocoa
 final class MainWindowController: NSWindowController {
     static let shared = MainWindowController()
 
+    private var subLabel: NSTextField!
+    private var captureBtn: NSButton!
     private var permissionBadgeLabel: NSTextField!
     private var permissionActionBtn: NSButton!
     private var previewImageView: NSImageView!
@@ -10,11 +12,12 @@ final class MainWindowController: NSWindowController {
     private var previewActionsStack: NSStackView!
     private var pinCountLabel: NSTextField!
     private var launchAtLoginCheckbox: NSButton!
+    private var shortcutPopUp: NSPopUpButton!
 
     private var lastCapturedImage: NSImage? = nil
 
     private init() {
-        let rect = NSRect(x: 0, y: 0, width: 520, height: 480)
+        let rect = NSRect(x: 0, y: 0, width: 520, height: 520)
         let window = NSWindow(
             contentRect: rect,
             styleMask: [.titled, .closable, .miniaturizable],
@@ -29,6 +32,7 @@ final class MainWindowController: NSWindowController {
         setupUI(in: window)
         refreshPermissionStatus()
         refreshLaunchAtLoginState()
+        refreshShortcutSelection()
     }
 
     required init?(coder: NSCoder) {
@@ -39,7 +43,7 @@ final class MainWindowController: NSWindowController {
         guard let contentView = window.contentView else { return }
 
         // 1. Header Card
-        let headerBox = NSView(frame: NSRect(x: 20, y: 392, width: 480, height: 68))
+        let headerBox = NSView(frame: NSRect(x: 20, y: 432, width: 480, height: 68))
         headerBox.wantsLayer = true
         headerBox.layer?.backgroundColor = WeChatTheme.green.withAlphaComponent(0.10).cgColor
         headerBox.layer?.cornerRadius = 10
@@ -58,14 +62,14 @@ final class MainWindowController: NSWindowController {
         titleLabel.frame = NSRect(x: 68, y: 34, width: 240, height: 24)
         headerBox.addSubview(titleLabel)
 
-        let subLabel = NSTextField(labelWithString: "全局快捷键：⌥Z (Option + Z)  |  智能窗口吸附 · 标注 · 马赛克 · 贴图 · OCR")
+        subLabel = NSTextField(labelWithString: "")
         subLabel.font = NSFont.systemFont(ofSize: 11.5)
         subLabel.textColor = .secondaryLabelColor
         subLabel.frame = NSRect(x: 68, y: 12, width: 400, height: 18)
         headerBox.addSubview(subLabel)
 
         // 2. Action Buttons Row
-        let captureBtn = NSButton(title: "  立即开始截图 (⌥Z)", target: self, action: #selector(handleStartCapture))
+        captureBtn = NSButton(title: "", target: self, action: #selector(handleStartCapture))
         captureBtn.bezelStyle = .regularSquare
         captureBtn.wantsLayer = true
         captureBtn.isBordered = false
@@ -73,22 +77,17 @@ final class MainWindowController: NSWindowController {
         captureBtn.layer?.cornerRadius = 8
         captureBtn.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
         captureBtn.contentTintColor = .white
-        let attrTitle = NSMutableAttributedString(string: "✂️ 立即开始截图 (Option + Z)", attributes: [
-            .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
-            .foregroundColor: NSColor.white
-        ])
-        captureBtn.attributedTitle = attrTitle
-        captureBtn.frame = NSRect(x: 20, y: 334, width: 320, height: 42)
+        captureBtn.frame = NSRect(x: 20, y: 374, width: 320, height: 42)
         contentView.addSubview(captureBtn)
 
         let delayBtn = NSButton(title: "⏱ 延时 3 秒截图", target: self, action: #selector(handleDelayedCapture))
         delayBtn.bezelStyle = .rounded
         delayBtn.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        delayBtn.frame = NSRect(x: 352, y: 335, width: 148, height: 40)
+        delayBtn.frame = NSRect(x: 352, y: 375, width: 148, height: 40)
         contentView.addSubview(delayBtn)
 
         // 3. Permission & Status Row
-        let statusBox = NSView(frame: NSRect(x: 20, y: 288, width: 480, height: 34))
+        let statusBox = NSView(frame: NSRect(x: 20, y: 328, width: 480, height: 34))
         statusBox.wantsLayer = true
         statusBox.layer?.backgroundColor = NSColor(calibratedWhite: 0.5, alpha: 0.08).cgColor
         statusBox.layer?.cornerRadius = 6
@@ -106,7 +105,7 @@ final class MainWindowController: NSWindowController {
         statusBox.addSubview(permissionActionBtn)
 
         // 4. Recent Screenshot Preview Area
-        let previewContainer = NSView(frame: NSRect(x: 20, y: 92, width: 480, height: 184))
+        let previewContainer = NSView(frame: NSRect(x: 20, y: 134, width: 480, height: 182))
         previewContainer.wantsLayer = true
         previewContainer.layer?.backgroundColor = NSColor(calibratedWhite: 0.0, alpha: 0.05).cgColor
         previewContainer.layer?.cornerRadius = 8
@@ -114,11 +113,11 @@ final class MainWindowController: NSWindowController {
         previewContainer.layer?.borderColor = NSColor.separatorColor.cgColor
         contentView.addSubview(previewContainer)
 
-        previewImageView = NSImageView(frame: NSRect(x: 10, y: 42, width: 460, height: 132))
+        previewImageView = NSImageView(frame: NSRect(x: 10, y: 42, width: 460, height: 130))
         previewImageView.imageScaling = .scaleProportionallyUpOrDown
         previewContainer.addSubview(previewImageView)
 
-        previewPlaceholderLabel = NSTextField(labelWithString: "暂无最近截图\n点击上方「立即开始截图」或按 ⌥Z (Option + Z) 即可体验微信同款截图")
+        previewPlaceholderLabel = NSTextField(labelWithString: "")
         previewPlaceholderLabel.alignment = .center
         previewPlaceholderLabel.font = NSFont.systemFont(ofSize: 12.5)
         previewPlaceholderLabel.textColor = .tertiaryLabelColor
@@ -143,34 +142,55 @@ final class MainWindowController: NSWindowController {
         previewActionsStack.isHidden = true
         previewContainer.addSubview(previewActionsStack)
 
-        // 5. Footer Guide & Settings Row (Launch at Login + Active Pin Count)
+        // 5. Shortcut & Settings Box
+        let settingsBox = NSView(frame: NSRect(x: 20, y: 86, width: 480, height: 38))
+        settingsBox.wantsLayer = true
+        settingsBox.layer?.backgroundColor = NSColor(calibratedWhite: 0.5, alpha: 0.06).cgColor
+        settingsBox.layer?.cornerRadius = 6
+        contentView.addSubview(settingsBox)
+
+        let shortcutTitle = NSTextField(labelWithString: "⌨️ 截图快捷键：")
+        shortcutTitle.font = NSFont.systemFont(ofSize: 12.5, weight: .medium)
+        shortcutTitle.frame = NSRect(x: 12, y: 9, width: 105, height: 20)
+        settingsBox.addSubview(shortcutTitle)
+
+        shortcutPopUp = NSPopUpButton(frame: NSRect(x: 116, y: 6, width: 224, height: 26), pullsDown: false)
+        shortcutPopUp.font = NSFont.systemFont(ofSize: 12.5)
+        for preset in ShortcutPreset.allCases {
+            shortcutPopUp.addItem(withTitle: preset.displayName)
+        }
+        shortcutPopUp.target = self
+        shortcutPopUp.action = #selector(handleShortcutPresetChanged(_:))
+        settingsBox.addSubview(shortcutPopUp)
+
+        launchAtLoginCheckbox = NSButton(
+            checkboxWithTitle: "开机自动启动",
+            target: self,
+            action: #selector(handleToggleLaunchAtLogin(_:))
+        )
+        launchAtLoginCheckbox.font = NSFont.systemFont(ofSize: 12.5, weight: .medium)
+        launchAtLoginCheckbox.frame = NSRect(x: 358, y: 8, width: 112, height: 22)
+        settingsBox.addSubview(launchAtLoginCheckbox)
+
+        // 6. Footer Guide & Active Pin Count
         let guideLabel = NSTextField(
             labelWithString: "💡 操作提示：移动鼠标自动高亮窗口（单击即选） • 拖拽框选任意区域 • 双击或按 Enter 完成复制 • 右键或 ESC 取消"
         )
         guideLabel.font = NSFont.systemFont(ofSize: 11)
         guideLabel.textColor = .secondaryLabelColor
-        guideLabel.frame = NSRect(x: 20, y: 54, width: 480, height: 28)
+        guideLabel.frame = NSRect(x: 20, y: 48, width: 480, height: 28)
         contentView.addSubview(guideLabel)
 
-        launchAtLoginCheckbox = NSButton(
-            checkboxWithTitle: "开机自动启动 WeChatShot",
-            target: self,
-            action: #selector(handleToggleLaunchAtLogin(_:))
-        )
-        launchAtLoginCheckbox.font = NSFont.systemFont(ofSize: 12.5, weight: .medium)
-        launchAtLoginCheckbox.frame = NSRect(x: 20, y: 17, width: 190, height: 22)
-        contentView.addSubview(launchAtLoginCheckbox)
-
-        pinCountLabel = NSTextField(labelWithString: "当前屏幕贴图：0")
+        pinCountLabel = NSTextField(labelWithString: "当前屏幕贴图数量：0")
         pinCountLabel.font = NSFont.systemFont(ofSize: 12)
         pinCountLabel.textColor = .secondaryLabelColor
-        pinCountLabel.frame = NSRect(x: 240, y: 18, width: 140, height: 20)
+        pinCountLabel.frame = NSRect(x: 20, y: 16, width: 200, height: 20)
         contentView.addSubview(pinCountLabel)
 
         let closePinsBtn = NSButton(title: "关闭全部贴图", target: self, action: #selector(handleCloseAllPins))
         closePinsBtn.bezelStyle = .rounded
         closePinsBtn.font = NSFont.systemFont(ofSize: 12)
-        closePinsBtn.frame = NSRect(x: 390, y: 14, width: 110, height: 28)
+        closePinsBtn.frame = NSRect(x: 390, y: 12, width: 110, height: 28)
         contentView.addSubview(closePinsBtn)
     }
 
@@ -191,6 +211,20 @@ final class MainWindowController: NSWindowController {
         launchAtLoginCheckbox?.state = LaunchAtLoginManager.shared.isEnabled ? .on : .off
     }
 
+    func refreshShortcutSelection() {
+        let preset = HotKeyManager.shared.currentPreset
+        if let idx = ShortcutPreset.allCases.firstIndex(of: preset) {
+            shortcutPopUp?.selectItem(at: idx)
+        }
+        subLabel?.stringValue = "全局快捷键：\(preset.shortLabel)  |  智能窗口吸附 · 标注 · 马赛克 · 贴图 · OCR"
+        let attrTitle = NSMutableAttributedString(string: "✂️ 立即开始截图 (\(preset.shortLabel))", attributes: [
+            .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
+            .foregroundColor: NSColor.white
+        ])
+        captureBtn?.attributedTitle = attrTitle
+        previewPlaceholderLabel?.stringValue = "暂无最近截图\n点击上方「立即开始截图」或按 \(preset.shortLabel) 即可体验微信同款截图"
+    }
+
     func updateWithCapturedImage(_ image: NSImage) {
         lastCapturedImage = image
         previewImageView.image = image
@@ -200,10 +234,17 @@ final class MainWindowController: NSWindowController {
     }
 
     func updatePinCount(_ count: Int) {
-        pinCountLabel?.stringValue = "当前屏幕贴图：\(count)"
+        pinCountLabel?.stringValue = "当前屏幕贴图数量：\(count)"
     }
 
     // MARK: - Actions
+    @objc private func handleShortcutPresetChanged(_ sender: NSPopUpButton) {
+        let idx = sender.indexOfSelectedItem
+        guard idx >= 0 && idx < ShortcutPreset.allCases.count else { return }
+        let selected = ShortcutPreset.allCases[idx]
+        HotKeyManager.shared.setPreset(selected)
+    }
+
     @objc private func handleToggleLaunchAtLogin(_ sender: NSButton) {
         let enabled = (sender.state == .on)
         LaunchAtLoginManager.shared.setEnabled(enabled)
