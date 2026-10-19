@@ -10,6 +10,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var launchAtLoginMenuItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Ensure Launch at Login is initialized (and uses --autostart)
+        LaunchAtLoginManager.shared.setupOnLaunch()
+
         setupApplicationMainMenu()
         setupStatusBarItem()
 
@@ -37,15 +40,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainWindowController.shared.refreshLaunchAtLoginState()
         }
 
-        MainWindowController.shared.showWindow(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        // If launched automatically at login (--autostart), stay silently in the status bar
+        let isAutoStart = CommandLine.arguments.contains("--autostart")
+        if !isAutoStart {
+            openControlPanel()
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag {
-            MainWindowController.shared.showWindow(nil)
-            NSApp.activate(ignoringOtherApps: true)
-        }
+        openControlPanel()
         return true
     }
 
@@ -149,8 +152,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenuShotItem.keyEquivalentModifierMask = current.menuModifierMask
         appMenuShotItem.target = self
         appMenu.addItem(appMenuShotItem)
+
+        let closeWinItem = NSMenuItem(title: "隐藏窗口到状态栏", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        appMenu.addItem(closeWinItem)
+
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "隐藏 WeChatShot", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(withTitle: "退出 WeChatShot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
 
@@ -207,5 +213,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-app.setActivationPolicy(.regular)
+// Run as an accessory (status bar) application so it never shows an icon in the Dock
+app.setActivationPolicy(.accessory)
 app.run()

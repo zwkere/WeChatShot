@@ -172,6 +172,7 @@ final class LaunchAtLoginManager {
     static let shared = LaunchAtLoginManager()
 
     private let label = "com.wechatshot.macos"
+    private let initDefaultsKey = "WeChatShot.LaunchAtLoginInitialized"
     var onStateChanged: ((Bool) -> Void)?
 
     private var launchAgentURL: URL {
@@ -181,6 +182,17 @@ final class LaunchAtLoginManager {
 
     var isEnabled: Bool {
         return FileManager.default.fileExists(atPath: launchAgentURL.path)
+    }
+
+    /// Ensures Launch at Login is enabled by default on first run and keeps the plist up-to-date with `--autostart`
+    func setupOnLaunch() {
+        if !UserDefaults.standard.bool(forKey: initDefaultsKey) {
+            UserDefaults.standard.set(true, forKey: initDefaultsKey)
+            setEnabled(true)
+        } else if isEnabled {
+            // Refresh plist so it always includes --autostart
+            setEnabled(true)
+        }
     }
 
     func setEnabled(_ enabled: Bool) {
@@ -199,16 +211,13 @@ final class LaunchAtLoginManager {
 
             let plistDict: [String: Any] = [
                 "Label": label,
-                "ProgramArguments": [appExecPath],
+                "ProgramArguments": [appExecPath, "--autostart"],
                 "RunAtLoad": true,
                 "ProcessType": "Interactive"
             ]
 
             if let data = try? PropertyListSerialization.data(fromPropertyList: plistDict, format: .xml, options: 0) {
                 try? data.write(to: launchAgentURL, options: .atomic)
-            }
-            if #available(macOS 13.0, *) {
-                try? SMAppService.mainApp.register()
             }
         } else {
             try? fm.removeItem(at: launchAgentURL)

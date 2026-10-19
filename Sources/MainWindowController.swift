@@ -1,6 +1,6 @@
 import Cocoa
 
-final class MainWindowController: NSWindowController {
+final class MainWindowController: NSWindowController, NSWindowDelegate {
     static let shared = MainWindowController()
 
     private var subLabel: NSTextField!
@@ -20,7 +20,7 @@ final class MainWindowController: NSWindowController {
         let rect = NSRect(x: 0, y: 0, width: 520, height: 520)
         let window = NSWindow(
             contentRect: rect,
-            styleMask: [.titled, .closable, .miniaturizable],
+            styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
@@ -29,6 +29,7 @@ final class MainWindowController: NSWindowController {
         window.center()
 
         super.init(window: window)
+        window.delegate = self
         setupUI(in: window)
         refreshPermissionStatus()
         refreshLaunchAtLoginState()
@@ -37,6 +38,12 @@ final class MainWindowController: NSWindowController {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    /// Clicking the window close button (red X) hides the window to the status bar instead of quitting
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        sender.orderOut(nil)
+        return false
     }
 
     private func setupUI(in window: NSWindow) {
