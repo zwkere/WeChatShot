@@ -12,6 +12,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var previewActionsStack: NSStackView!
     private var pinCountLabel: NSTextField!
     private var launchAtLoginCheckbox: NSButton!
+    private var windowSnapCheckbox: NSButton!
     private var shortcutPopUp: NSPopUpButton!
 
     private var lastCapturedImage: NSImage? = nil
@@ -34,6 +35,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         refreshPermissionStatus()
         refreshLaunchAtLoginState()
         refreshShortcutSelection()
+        refreshWindowSnapState()
     }
 
     required init?(coder: NSCoder) {
@@ -150,8 +152,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         previewActionsStack.isHidden = true
         previewContainer.addSubview(previewActionsStack)
 
-        // 5. Shortcut & Settings Box
-        let settingsBox = NSView(frame: NSRect(x: 20, y: 86, width: 480, height: 38))
+        // 5. Shortcut & Settings Box (two rows)
+        let settingsBox = NSView(frame: NSRect(x: 20, y: 78, width: 480, height: 50))
         settingsBox.wantsLayer = true
         settingsBox.layer?.backgroundColor = NSColor(calibratedWhite: 0.5, alpha: 0.06).cgColor
         settingsBox.layer?.cornerRadius = 6
@@ -159,10 +161,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
         let shortcutTitle = NSTextField(labelWithString: "⌨️ 截图快捷键：")
         shortcutTitle.font = NSFont.systemFont(ofSize: 12.5, weight: .medium)
-        shortcutTitle.frame = NSRect(x: 12, y: 9, width: 105, height: 20)
+        shortcutTitle.frame = NSRect(x: 12, y: 26, width: 105, height: 20)
         settingsBox.addSubview(shortcutTitle)
 
-        shortcutPopUp = NSPopUpButton(frame: NSRect(x: 116, y: 6, width: 224, height: 26), pullsDown: false)
+        shortcutPopUp = NSPopUpButton(frame: NSRect(x: 116, y: 23, width: 224, height: 26), pullsDown: false)
         shortcutPopUp.font = NSFont.systemFont(ofSize: 12.5)
         for preset in ShortcutPreset.allCases {
             shortcutPopUp.addItem(withTitle: preset.displayName)
@@ -177,12 +179,29 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             action: #selector(handleToggleLaunchAtLogin(_:))
         )
         launchAtLoginCheckbox.font = NSFont.systemFont(ofSize: 12.5, weight: .medium)
-        launchAtLoginCheckbox.frame = NSRect(x: 358, y: 8, width: 112, height: 22)
+        launchAtLoginCheckbox.frame = NSRect(x: 358, y: 25, width: 112, height: 22)
         settingsBox.addSubview(launchAtLoginCheckbox)
+
+        // Row 2: window snapping behaviour
+        windowSnapCheckbox = NSButton(
+            checkboxWithTitle: "移动鼠标自动高亮所在窗口",
+            target: self,
+            action: #selector(handleToggleWindowSnap(_:))
+        )
+        windowSnapCheckbox.toolTip = "开启后：移动鼠标自动高亮窗口，单击即可快速选中该窗口；关闭后：默认自由拖拽框选"
+        windowSnapCheckbox.font = NSFont.systemFont(ofSize: 12.5, weight: .medium)
+        windowSnapCheckbox.frame = NSRect(x: 12, y: 1, width: 210, height: 22)
+        settingsBox.addSubview(windowSnapCheckbox)
+
+        let windowSnapHint = NSTextField(labelWithString: "关闭时为默认的鼠标自由框选模式")
+        windowSnapHint.font = NSFont.systemFont(ofSize: 11)
+        windowSnapHint.textColor = .secondaryLabelColor
+        windowSnapHint.frame = NSRect(x: 228, y: 3, width: 244, height: 18)
+        settingsBox.addSubview(windowSnapHint)
 
         // 6. Footer Guide & Active Pin Count
         let guideLabel = NSTextField(
-            labelWithString: "💡 操作提示：移动鼠标自动高亮窗口（单击即选） • 拖拽框选任意区域 • 双击或按 Enter 完成复制 • 右键或 ESC 取消"
+            labelWithString: "💡 操作提示：拖拽框选任意区域 • 开启「窗口吸附」后单击即可选中窗口 • 双击或按 Enter 完成复制 • 右键或 ESC 取消"
         )
         guideLabel.font = NSFont.systemFont(ofSize: 11)
         guideLabel.textColor = .secondaryLabelColor
@@ -217,6 +236,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     func refreshLaunchAtLoginState() {
         launchAtLoginCheckbox?.state = LaunchAtLoginManager.shared.isEnabled ? .on : .off
+    }
+
+    func refreshWindowSnapState() {
+        windowSnapCheckbox?.state = AppSettings.windowSnappingEnabled ? .on : .off
+    }
+
+    @objc private func handleToggleWindowSnap(_ sender: NSButton) {
+        AppSettings.windowSnappingEnabled = (sender.state == .on)
     }
 
     func refreshShortcutSelection() {

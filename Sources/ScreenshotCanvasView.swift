@@ -568,8 +568,12 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
         }
 
         if !isSelectionLocked {
-            // Detect window under cursor
-            hoveredWindow = detectedWindows.first(where: { $0.frame.contains(pt) })
+            // 仅在「窗口吸附」开启时高亮鼠标下窗口；关闭时保持自由框选
+            if AppSettings.windowSnappingEnabled {
+                hoveredWindow = detectedWindows.first(where: { $0.frame.contains(pt) })
+            } else if hoveredWindow != nil {
+                hoveredWindow = nil
+            }
             NSCursor.crosshair.set()
             needsDisplay = true
         } else {
@@ -728,8 +732,8 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
         case .creatingSelection(let origin):
             let dist = hypot(pt.x - origin.x, pt.y - origin.y)
             if dist < 5.0 {
-                // Single click without dragging -> lock the hovered window!
-                if let hw = hoveredWindow {
+                // Tiny drag -> lock the hovered window (only when window snapping is enabled)
+                if AppSettings.windowSnappingEnabled, let hw = hoveredWindow {
                     selectionRect = hw.frame
                     isSelectionLocked = true
                 }
@@ -882,7 +886,7 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
             commitActiveTextFieldIfNeeded()
             if isSelectionLocked {
                 toolbarDidClickDone()
-            } else if let hw = hoveredWindow {
+            } else if AppSettings.windowSnappingEnabled, let hw = hoveredWindow {
                 selectionRect = hw.frame
                 isSelectionLocked = true
                 toolbarDidClickDone()

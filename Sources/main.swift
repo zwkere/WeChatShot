@@ -204,6 +204,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainWindowController.shared.refreshPermissionStatus()
         MainWindowController.shared.refreshLaunchAtLoginState()
         MainWindowController.shared.refreshShortcutSelection()
+        MainWindowController.shared.refreshWindowSnapState()
         MainWindowController.shared.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
         MainWindowController.shared.window?.makeKeyAndOrderFront(nil)

@@ -63,6 +63,7 @@ rm -rf "$ICONSET_DIR"
 SDK_PATH="$(xcrun --show-sdk-path --sdk macosx)"
 SOURCES=(
     "$PROJECT_DIR/Sources/Models.swift"
+    "$PROJECT_DIR/Sources/AppSettings.swift"
     "$PROJECT_DIR/Sources/ScreenCaptureManager.swift"
     "$PROJECT_DIR/Sources/HotKeyManager.swift"
     "$PROJECT_DIR/Sources/ToolbarView.swift"
