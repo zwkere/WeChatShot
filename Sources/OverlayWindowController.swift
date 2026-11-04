@@ -118,6 +118,11 @@ final class ScreenshotCoordinator: ScreenshotCanvasDelegate {
         pb.writeObjects([image])
         NSSound(named: "Tink")?.play()
         closeOverlay()
+
+        // 截图翻译模式：开启后完成截图自动弹出识别+翻译窗口（图片仍已复制到剪贴板）
+        if AppSettings.autoTranslateEnabled {
+            TranslationWindowController.shared.translate(image: image)
+        }
         onScreenshotCompleted?(image)
     }
 

@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var shortcutSubmenuItems: [ShortcutPreset: NSMenuItem] = [:]
     private var pinMenuItem: NSMenuItem!
     private var launchAtLoginMenuItem: NSMenuItem!
+    private var translateModeMenuItem: NSMenuItem!
+    private var freeSelectMenuItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Ensure Launch at Login is initialized (and uses --autostart)
@@ -81,6 +83,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let delayItem = NSMenuItem(title: "延时 3 秒截图", action: #selector(triggerDelayedScreenshot), keyEquivalent: "")
         delayItem.target = self
         menu.addItem(delayItem)
+
+        menu.addItem(.separator())
+
+        // 截图行为快捷开关（设置自动保存，主面板同步显示）
+        translateModeMenuItem = NSMenuItem(
+            title: "截图翻译模式（截完自动译文）",
+            action: #selector(toggleAutoTranslate),
+            keyEquivalent: ""
+        )
+        translateModeMenuItem.target = self
+        translateModeMenuItem.state = AppSettings.autoTranslateEnabled ? .on : .off
+        translateModeMenuItem.toolTip = "开启后每次截图完成即自动识别图中文字并翻译为简体中文"
+        menu.addItem(translateModeMenuItem)
+
+        freeSelectMenuItem = NSMenuItem(
+            title: "默认自由框选",
+            action: #selector(toggleFreeSelect),
+            keyEquivalent: ""
+        )
+        freeSelectMenuItem.target = self
+        freeSelectMenuItem.state = AppSettings.windowSnappingEnabled ? .off : .on
+        freeSelectMenuItem.toolTip = "开启（默认）：拖拽框选，不自动高亮窗口；关闭：微信式移动高亮窗口、单击即选"
+        menu.addItem(freeSelectMenuItem)
 
         menu.addItem(.separator())
 
@@ -200,11 +225,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LaunchAtLoginManager.shared.toggle()
     }
 
+    @objc private func toggleAutoTranslate() {
+        AppSettings.autoTranslateEnabled.toggle()
+        translateModeMenuItem?.state = AppSettings.autoTranslateEnabled ? .on : .off
+    }
+
+    @objc private func toggleFreeSelect() {
+        AppSettings.windowSnappingEnabled.toggle()
+        freeSelectMenuItem?.state = AppSettings.windowSnappingEnabled ? .off : .on
+        MainWindowController.shared.refreshWindowSnapState()
+    }
+
     @objc private func openControlPanel() {
         MainWindowController.shared.refreshPermissionStatus()
         MainWindowController.shared.refreshLaunchAtLoginState()
         MainWindowController.shared.refreshShortcutSelection()
         MainWindowController.shared.refreshWindowSnapState()
+        MainWindowController.shared.refreshMaskLevelState()
         MainWindowController.shared.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
         MainWindowController.shared.window?.makeKeyAndOrderFront(nil)

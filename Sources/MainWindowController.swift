@@ -13,6 +13,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var pinCountLabel: NSTextField!
     private var launchAtLoginCheckbox: NSButton!
     private var windowSnapCheckbox: NSButton!
+    private var maskLevelPopUp: NSPopUpButton!
     private var shortcutPopUp: NSPopUpButton!
 
     private var lastCapturedImage: NSImage? = nil
@@ -36,6 +37,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         refreshLaunchAtLoginState()
         refreshShortcutSelection()
         refreshWindowSnapState()
+        refreshMaskLevelState()
     }
 
     required init?(coder: NSCoder) {
@@ -182,7 +184,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         launchAtLoginCheckbox.frame = NSRect(x: 358, y: 25, width: 112, height: 22)
         settingsBox.addSubview(launchAtLoginCheckbox)
 
-        // Row 2: window snapping behaviour
+        // Row 2: window snapping behaviour + mask opacity
         windowSnapCheckbox = NSButton(
             checkboxWithTitle: "移动鼠标自动高亮所在窗口",
             target: self,
@@ -193,11 +195,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         windowSnapCheckbox.frame = NSRect(x: 12, y: 1, width: 210, height: 22)
         settingsBox.addSubview(windowSnapCheckbox)
 
-        let windowSnapHint = NSTextField(labelWithString: "关闭时为默认的鼠标自由框选模式")
-        windowSnapHint.font = NSFont.systemFont(ofSize: 11)
-        windowSnapHint.textColor = .secondaryLabelColor
-        windowSnapHint.frame = NSRect(x: 228, y: 3, width: 244, height: 18)
-        settingsBox.addSubview(windowSnapHint)
+        maskLevelPopUp = NSPopUpButton(frame: NSRect(x: 228, y: 1, width: 244, height: 22), pullsDown: false)
+        maskLevelPopUp.isBordered = false
+        maskLevelPopUp.font = NSFont.systemFont(ofSize: 11.5)
+        for level in AppSettings.maskLevels {
+            maskLevelPopUp.addItem(withTitle: "✦ 蒙层浓度：\(level.name)")
+        }
+        maskLevelPopUp.toolTip = "截图时选区外背景变暗程度（仿微信为「标准 45%」）"
+        maskLevelPopUp.target = self
+        maskLevelPopUp.action = #selector(handleMaskLevelChanged(_:))
+        settingsBox.addSubview(maskLevelPopUp)
 
         // 6. Footer Guide & Active Pin Count
         let guideLabel = NSTextField(
@@ -242,8 +249,24 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         windowSnapCheckbox?.state = AppSettings.windowSnappingEnabled ? .on : .off
     }
 
+    func refreshMaskLevelState() {
+        guard let popUp = maskLevelPopUp else { return }
+        let alpha = AppSettings.maskAlpha
+        // 找最接近的档位（兼容旧版本写入的其他数值）
+        let idx = AppSettings.maskLevels.enumerated()
+            .min(by: { abs($0.element.alpha - alpha) < abs($1.element.alpha - alpha) })?
+            .offset ?? 2
+        popUp.selectItem(at: idx)
+    }
+
     @objc private func handleToggleWindowSnap(_ sender: NSButton) {
         AppSettings.windowSnappingEnabled = (sender.state == .on)
+    }
+
+    @objc private func handleMaskLevelChanged(_ sender: NSPopUpButton) {
+        let idx = sender.indexOfSelectedItem
+        guard idx >= 0 && idx < AppSettings.maskLevels.count else { return }
+        AppSettings.maskAlpha = AppSettings.maskLevels[idx].alpha
     }
 
     func refreshShortcutSelection() {

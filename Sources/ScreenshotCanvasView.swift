@@ -130,7 +130,7 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
             maskPath.appendRect(selRect)
             maskPath.windingRule = .evenOdd
         }
-        WeChatTheme.maskColor.setFill()
+        NSColor(calibratedWhite: 0.0, alpha: CGFloat(AppSettings.maskAlpha)).setFill()
         maskPath.fill()
         NSGraphicsContext.restoreGraphicsState()
 
