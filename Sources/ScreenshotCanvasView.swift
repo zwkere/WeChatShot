@@ -16,8 +16,6 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
     private let screenCGImage: CGImage?
     private let mosaicImage: NSImage?
     private let detectedWindows: [DetectedWindow]
-    /// 预渲染的“截图+蒙层”首帧位图：首次 draw 直接整张贴出，保证窗口第一帧即最终画面
-    private var firstFrameImage: NSImage? = nil
 
     // Selection State
     private(set) var isSelectionLocked: Bool = false
@@ -58,14 +56,12 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
         screenImage: NSImage,
         screenCGImage: CGImage?,
         mosaicImage: NSImage?,
-        detectedWindows: [DetectedWindow],
-        firstFrameImage: NSImage? = nil
+        detectedWindows: [DetectedWindow]
     ) {
         self.screenImage = screenImage
         self.screenCGImage = screenCGImage
         self.mosaicImage = mosaicImage
         self.detectedWindows = detectedWindows
-        self.firstFrameImage = firstFrameImage
         super.init(frame: frame)
 
         toolbarView.delegate = self
@@ -120,19 +116,16 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
 
     // MARK: - Drawing
     override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
+        // 关键：不能让窗口像素全透明！
+        // WindowServer 对 isOpaque=false 的窗口按像素 alpha 命中测试，
+        // 全透明区域（alpha=0）的点击会穿透到下层 App。整窗铺 2% 黑底，
+        // 视觉不可感知（亮度变化 ≈ 1/255），但保证点击/拖拽全部落在本窗口。
+        NSColor(calibratedWhite: 0.0, alpha: 0.02).setFill()
+        bounds.fill()
 
-        // 0. Pre-rendered first frame（截图+蒙层已合成好）：首帧直接贴出，
-        //    后续 draw 会按完整逻辑重绘（结果与首帧一致）
-        if let firstFrame = firstFrameImage {
-            firstFrameImage = nil
-            firstFrame.draw(in: bounds)
-            return
-        }
-
-        // 1. Draw full-screen background screenshot
-        screenImage.draw(in: bounds)
-
+        // 活屏覆盖窗口：不再绘制冻结截图背景（其 SDR/HDR 色调映射与真实屏幕
+        // 存在约 12% 亮度差，是启动/取消截图瞬间「闪一下」的根因）。
+        // 蒙层、选区、标注直接画在透明窗口上，真实屏幕透过未覆盖区域保持活体。
         let selRect = activeDisplayRect
 
         // 2. Draw dark translucent mask outside selection rect
@@ -570,6 +563,11 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
     }
 
     // MARK: - Mouse Events
+    // AppKit 托管十字光标：鼠标进入覆盖层全程十字，避免被下层窗口重置为别样光标
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .crosshair)
+    }
+
     override func mouseMoved(with event: NSEvent) {
         let pt = convert(event.locationInWindow, from: nil)
         mouseLocation = pt
