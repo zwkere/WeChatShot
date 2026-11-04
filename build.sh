@@ -2,7 +2,7 @@
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VERSION="1.2.0"
+VERSION="1.3.0"
 APP_NAME="WeChatShot"
 APP_BUNDLE="$PROJECT_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_BUNDLE/Contents"
