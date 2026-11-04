@@ -6,6 +6,7 @@ protocol ScreenshotCanvasDelegate: AnyObject {
     func canvasDidRequestSave(_ image: NSImage)
     func canvasDidRequestPin(_ image: NSImage, selectionRectInScreen: NSRect)
     func canvasDidRequestOCR(_ image: NSImage)
+    func canvasDidRequestTranslate(_ image: NSImage)
 }
 
 final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDelegate {
@@ -983,6 +984,11 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
     func toolbarDidClickOCR() {
         guard let img = renderSelectedImage() else { return }
         delegate?.canvasDidRequestOCR(img)
+    }
+
+    func toolbarDidClickTranslate() {
+        guard let img = renderSelectedImage() else { return }
+        delegate?.canvasDidRequestTranslate(img)
     }
 
     func toolbarDidClickPin() {

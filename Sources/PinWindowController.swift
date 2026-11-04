@@ -122,6 +122,10 @@ final class PinWindowController: NSWindowController {
         OCRWindowController.shared.recognizeAndShow(image: sourceImage)
     }
 
+    func runTranslate() {
+        TranslationWindowController.shared.translate(image: sourceImage)
+    }
+
     func setWindowAlpha(_ alpha: CGFloat) {
         window?.alphaValue = alpha
     }
@@ -271,6 +275,10 @@ private final class PinContentView: NSView {
         ocrItem.target = self
         menu.addItem(ocrItem)
 
+        let translateItem = NSMenuItem(title: "翻译为简体中文", action: #selector(handleTranslate), keyEquivalent: "")
+        translateItem.target = self
+        menu.addItem(translateItem)
+
         menu.addItem(.separator())
 
         let resetSizeItem = NSMenuItem(title: "还原原始尺寸 (100%)", action: #selector(handleResetZoom), keyEquivalent: "0")
@@ -300,6 +308,7 @@ private final class PinContentView: NSView {
     @objc private func handleCopy() { owner?.copyImage() }
     @objc private func handleSave() { owner?.saveImage() }
     @objc private func handleOCR() { owner?.runOCR() }
+    @objc private func handleTranslate() { owner?.runTranslate() }
     @objc private func handleResetZoom() { owner?.resetZoom() }
     @objc private func handleAlpha(_ sender: NSMenuItem) {
         if let alpha = sender.representedObject as? CGFloat {

@@ -153,4 +153,10 @@ final class ScreenshotCoordinator: ScreenshotCanvasDelegate {
         OCRWindowController.shared.recognizeAndShow(image: image)
         onScreenshotCompleted?(image)
     }
+
+    func canvasDidRequestTranslate(_ image: NSImage) {
+        closeOverlay()
+        TranslationWindowController.shared.translate(image: image)
+        onScreenshotCompleted?(image)
+    }
 }

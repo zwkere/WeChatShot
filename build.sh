@@ -2,7 +2,7 @@
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VERSION="1.0.0"
+VERSION="1.1.0"
 APP_NAME="WeChatShot"
 APP_BUNDLE="$PROJECT_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_BUNDLE/Contents"
@@ -67,7 +67,10 @@ SOURCES=(
     "$PROJECT_DIR/Sources/HotKeyManager.swift"
     "$PROJECT_DIR/Sources/ToolbarView.swift"
     "$PROJECT_DIR/Sources/PinWindowController.swift"
+    "$PROJECT_DIR/Sources/OCREngine.swift"
     "$PROJECT_DIR/Sources/OCRWindowController.swift"
+    "$PROJECT_DIR/Sources/TranslationService.swift"
+    "$PROJECT_DIR/Sources/TranslationWindowController.swift"
     "$PROJECT_DIR/Sources/ScreenshotCanvasView.swift"
     "$PROJECT_DIR/Sources/OverlayWindowController.swift"
     "$PROJECT_DIR/Sources/MainWindowController.swift"
@@ -80,11 +83,17 @@ FRAMEWORKS=(
     -framework ScreenCaptureKit
     -framework Vision
     -framework ServiceManagement
+    -framework NaturalLanguage
+)
+
+# macOS 14.0~14.3 无 Translation 框架，weak 链接避免启动时 dyld 报错（运行时按 #available 分发）
+WEAK_LINK=(
+    -Xlinker -weak_framework -Xlinker Translation
 )
 
 echo "⚡ [3/6] 正在编译 Universal Binary (arm64 + x86_64, 支持 macOS 14.0+)..."
-swiftc -O -sdk "$SDK_PATH" -target arm64-apple-macosx14.0 "${FRAMEWORKS[@]}" "${SOURCES[@]}" -o "$MACOS_DIR/${APP_NAME}_arm64"
-swiftc -O -sdk "$SDK_PATH" -target x86_64-apple-macosx14.0 "${FRAMEWORKS[@]}" "${SOURCES[@]}" -o "$MACOS_DIR/${APP_NAME}_x86_64"
+swiftc -O -sdk "$SDK_PATH" -target arm64-apple-macosx14.0 "${FRAMEWORKS[@]}" "${WEAK_LINK[@]}" "${SOURCES[@]}" -o "$MACOS_DIR/${APP_NAME}_arm64"
+swiftc -O -sdk "$SDK_PATH" -target x86_64-apple-macosx14.0 "${FRAMEWORKS[@]}" "${WEAK_LINK[@]}" "${SOURCES[@]}" -o "$MACOS_DIR/${APP_NAME}_x86_64"
 lipo -create -output "$MACOS_DIR/$APP_NAME" "$MACOS_DIR/${APP_NAME}_arm64" "$MACOS_DIR/${APP_NAME}_x86_64"
 rm -f "$MACOS_DIR/${APP_NAME}_arm64" "$MACOS_DIR/${APP_NAME}_x86_64"
 

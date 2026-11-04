@@ -87,46 +87,26 @@ final class OCRWindowController: NSWindowController {
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
 
-        var rect = NSRect(origin: .zero, size: image.size)
-        guard let cgImage = image.cgImage(forProposedRect: &rect, context: nil, hints: nil) else {
+        guard let cgImage = OCREngine.cgImage(from: image) else {
             statusLabel.stringValue = "无法读取图像数据"
             return
         }
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let request = VNRecognizeTextRequest { [weak self] req, err in
+        OCREngine.recognizeText(in: cgImage) { [weak self] result in
+            DispatchQueue.main.async {
                 guard let self = self else { return }
-                if let err = err {
-                    DispatchQueue.main.async {
-                        self.statusLabel.stringValue = "识别出错：\(err.localizedDescription)"
-                    }
-                    return
-                }
-
-                let observations = req.results as? [VNRecognizedTextObservation] ?? []
-                let lines: [String] = observations.compactMap { $0.topCandidates(1).first?.string }
-                let fullText = lines.joined(separator: "\n")
-
-                DispatchQueue.main.async {
+                switch result {
+                case .success(let fullText):
                     if fullText.isEmpty {
                         self.textView.string = "（未在所选区域内检测到可识别的文字）"
                         self.statusLabel.stringValue = "识别完成：未检测到文字"
                     } else {
+                        let lineCount = fullText.split(separator: "\n", omittingEmptySubsequences: false).count
                         self.textView.string = fullText
-                        self.statusLabel.stringValue = "识别完成：共 \(lines.count) 行，\(fullText.count) 个字符"
+                        self.statusLabel.stringValue = "识别完成：共 \(lineCount) 行，\(fullText.count) 个字符"
                     }
-                }
-            }
-            request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = true
-            request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US", "ja-JP"]
-
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            do {
-                try handler.perform([request])
-            } catch {
-                DispatchQueue.main.async {
-                    self?.statusLabel.stringValue = "OCR 执行失败：\(error.localizedDescription)"
+                case .failure(let error):
+                    self.statusLabel.stringValue = "OCR 执行失败：\(error.localizedDescription)"
                 }
             }
         }

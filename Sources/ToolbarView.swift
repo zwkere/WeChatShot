@@ -6,6 +6,7 @@ protocol WeChatToolbarDelegate: AnyObject {
     func toolbarDidSelectColor(_ color: NSColor)
     func toolbarDidClickUndo()
     func toolbarDidClickOCR()
+    func toolbarDidClickTranslate()
     func toolbarDidClickPin()
     func toolbarDidClickSave()
     func toolbarDidClickCancel()
@@ -44,13 +45,14 @@ final class WeChatToolbarContainerView: NSView {
         case tool(AnnotationTool)
         case undo
         case ocr
+        case translate
         case pin
         case save
         case cancel
         case done
 
         static var allCases: [ActionButtonID] {
-            return AnnotationTool.allCases.map { .tool($0) } + [.undo, .ocr, .pin, .save, .cancel, .done]
+            return AnnotationTool.allCases.map { .tool($0) } + [.undo, .ocr, .translate, .pin, .save, .cancel, .done]
         }
 
         var tooltip: String {
@@ -58,6 +60,7 @@ final class WeChatToolbarContainerView: NSView {
             case .tool(let t): return t.title
             case .undo:        return "撤销 (⌘Z)"
             case .ocr:         return "提取图中文字 (OCR)"
+            case .translate:   return "截图翻译 - 译为简体中文"
             case .pin:         return "在屏幕上贴图 (Pin)"
             case .save:        return "保存截图 (⌘S)"
             case .cancel:      return "退出截图 (ESC)"
@@ -70,6 +73,7 @@ final class WeChatToolbarContainerView: NSView {
             case .tool(let t): return t.symbolName
             case .undo:        return "arrow.uturn.backward"
             case .ocr:         return "text.viewfinder"
+            case .translate:   return "character.bubble"
             case .pin:         return "pin"
             case .save:        return "square.and.arrow.down"
             case .cancel:      return "xmark"
@@ -95,7 +99,7 @@ final class WeChatToolbarContainerView: NSView {
     static let styleBarHeight: CGFloat = 36.0
     static let styleBarGap: CGFloat = 8.0
     static let totalHeight: CGFloat = mainBarHeight + styleBarGap + styleBarHeight
-    static let totalWidth: CGFloat = 446.0
+    static let totalWidth: CGFloat = 480.0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -171,8 +175,8 @@ final class WeChatToolbarContainerView: NSView {
         dividerXs.append(x)
         x += 5.0
 
-        // 3. OCR, Pin, Save
-        for id in [ActionButtonID.ocr, .pin, .save] {
+        // 3. OCR, Translate, Pin, Save
+        for id in [ActionButtonID.ocr, .translate, .pin, .save] {
             buttonLayouts.append(ButtonLayout(id: id, rect: NSRect(x: x, y: btnY, width: btnW, height: btnH)))
             x += btnW + 2.0
         }
@@ -497,6 +501,8 @@ final class WeChatToolbarContainerView: NSView {
             }
         case .ocr:
             delegate?.toolbarDidClickOCR()
+        case .translate:
+            delegate?.toolbarDidClickTranslate()
         case .pin:
             delegate?.toolbarDidClickPin()
         case .save:

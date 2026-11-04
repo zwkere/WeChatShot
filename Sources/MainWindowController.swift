@@ -135,13 +135,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let btnSave = NSButton(title: "保存图片", target: self, action: #selector(saveLastImage))
         let btnPin  = NSButton(title: "贴在屏幕 (Pin)", target: self, action: #selector(pinLastImage))
         let btnOCR  = NSButton(title: "提取文字 (OCR)", target: self, action: #selector(ocrLastImage))
+        let btnTranslate = NSButton(title: "翻译 (译为简中)", target: self, action: #selector(translateLastImage))
 
-        for b in [btnCopy, btnSave, btnPin, btnOCR] {
+        for b in [btnCopy, btnSave, btnPin, btnOCR, btnTranslate] {
             b.bezelStyle = .rounded
             b.font = NSFont.systemFont(ofSize: 12)
         }
 
-        previewActionsStack = NSStackView(views: [btnCopy, btnSave, btnPin, btnOCR])
+        previewActionsStack = NSStackView(views: [btnCopy, btnSave, btnPin, btnOCR, btnTranslate])
         previewActionsStack.orientation = .horizontal
         previewActionsStack.distribution = .fillEqually
         previewActionsStack.spacing = 10
@@ -223,7 +224,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if let idx = ShortcutPreset.allCases.firstIndex(of: preset) {
             shortcutPopUp?.selectItem(at: idx)
         }
-        subLabel?.stringValue = "全局快捷键：\(preset.shortLabel)  |  智能窗口吸附 · 标注 · 马赛克 · 贴图 · OCR"
+        subLabel?.stringValue = "全局快捷键：\(preset.shortLabel)  |  智能窗口吸附 · 标注 · 马赛克 · 贴图 · OCR · 截图翻译"
         let attrTitle = NSMutableAttributedString(string: "✂️ 立即开始截图 (\(preset.shortLabel))", attributes: [
             .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
             .foregroundColor: NSColor.white
@@ -310,6 +311,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     @objc private func ocrLastImage() {
         guard let img = lastCapturedImage else { return }
         OCRWindowController.shared.recognizeAndShow(image: img)
+    }
+
+    @objc private func translateLastImage() {
+        guard let img = lastCapturedImage else { return }
+        TranslationWindowController.shared.translate(image: img)
     }
 
     @objc private func handleCloseAllPins() {
