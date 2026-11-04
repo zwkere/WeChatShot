@@ -75,7 +75,8 @@ final class ScreenshotCoordinator: ScreenshotCanvasDelegate {
             defer: false
         )
         panel.level = .screenSaver
-        panel.isOpaque = true
+        // 透明背景 + 非不透明：首帧未渲染时窗口不可见，避免出现黑帧闪屏
+        panel.isOpaque = false
         panel.hasShadow = false
         panel.backgroundColor = .clear
         panel.acceptsMouseMovedEvents = true
@@ -93,7 +94,8 @@ final class ScreenshotCoordinator: ScreenshotCanvasDelegate {
         panel.contentView = canvasView
 
         self.activeWindow = panel
-        NSApp.activate(ignoringOtherApps: true)
+        // 不抢 App 焦点（避免其他窗口标题栏闪烁 => 屏幕抖动感）：
+        // 非激活 Panel 仍可成为 key window 接收键盘/鼠标事件
         panel.makeKeyAndOrderFront(nil)
         panel.makeFirstResponder(canvasView)
         NSCursor.crosshair.set()
