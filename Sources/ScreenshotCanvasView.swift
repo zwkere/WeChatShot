@@ -16,6 +16,8 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
     private let screenCGImage: CGImage?
     private let mosaicImage: NSImage?
     private let detectedWindows: [DetectedWindow]
+    /// 预渲染的“截图+蒙层”首帧位图：首次 draw 直接整张贴出，保证窗口第一帧即最终画面
+    private var firstFrameImage: NSImage? = nil
 
     // Selection State
     private(set) var isSelectionLocked: Bool = false
@@ -56,12 +58,14 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
         screenImage: NSImage,
         screenCGImage: CGImage?,
         mosaicImage: NSImage?,
-        detectedWindows: [DetectedWindow]
+        detectedWindows: [DetectedWindow],
+        firstFrameImage: NSImage? = nil
     ) {
         self.screenImage = screenImage
         self.screenCGImage = screenCGImage
         self.mosaicImage = mosaicImage
         self.detectedWindows = detectedWindows
+        self.firstFrameImage = firstFrameImage
         super.init(frame: frame)
 
         toolbarView.delegate = self
@@ -117,6 +121,14 @@ final class ScreenshotCanvasView: NSView, WeChatToolbarDelegate, NSTextFieldDele
     // MARK: - Drawing
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+
+        // 0. Pre-rendered first frame（截图+蒙层已合成好）：首帧直接贴出，
+        //    后续 draw 会按完整逻辑重绘（结果与首帧一致）
+        if let firstFrame = firstFrameImage {
+            firstFrameImage = nil
+            firstFrame.draw(in: bounds)
+            return
+        }
 
         // 1. Draw full-screen background screenshot
         screenImage.draw(in: bounds)

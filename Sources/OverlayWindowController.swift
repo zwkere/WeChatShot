@@ -79,16 +79,28 @@ final class ScreenshotCoordinator: ScreenshotCanvasDelegate {
         panel.isOpaque = false
         panel.hasShadow = false
         panel.backgroundColor = .clear
+        // 不加 canJoinAllSpaces：一次性短命窗口天然显示在当前 Space，
+        // 加入所有 Spaces 会触发 Window Server 全 Space 重新合成（闪屏元凶）
+        panel.collectionBehavior = [.fullScreenAuxiliary]
         panel.acceptsMouseMovedEvents = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         let canvasFrame = NSRect(origin: .zero, size: screen.frame.size)
+
+        // 预渲染首帧（截图 + 蒙层）成为一张位图：窗口显示的第一帧即最终画面
+        let firstFrameImage = NSImage(size: canvasFrame.size)
+        firstFrameImage.lockFocus()
+        screenImage.draw(in: canvasFrame)
+        NSColor(calibratedWhite: 0.0, alpha: CGFloat(AppSettings.maskAlpha)).setFill()
+        canvasFrame.fill()
+        firstFrameImage.unlockFocus()
+
         let canvasView = ScreenshotCanvasView(
             frame: canvasFrame,
             screenImage: screenImage,
             screenCGImage: screenCGImage,
             mosaicImage: mosaicImage,
-            detectedWindows: detectedWindows
+            detectedWindows: detectedWindows,
+            firstFrameImage: firstFrameImage
         )
         canvasView.delegate = self
         panel.contentView = canvasView
@@ -98,6 +110,15 @@ final class ScreenshotCoordinator: ScreenshotCanvasDelegate {
         // 非激活 Panel 仍可成为 key window 接收键盘/鼠标事件
         panel.makeKeyAndOrderFront(nil)
         panel.makeFirstResponder(canvasView)
+
+        // 极短淡入（60ms）：掩盖任何残余的单帧毛刺，感知上仍是“瞬间变暗”
+        panel.alphaValue = 0.0
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.06
+            context.allowsImplicitAnimation = true
+            panel.animator().alphaValue = 1.0
+        }
+
         NSCursor.crosshair.set()
     }
 
