@@ -28,7 +28,7 @@
 
 ### 方式一：直接下载安装包（推荐）
 
-1. 前往 [Releases](../../releases) 页面下载最新版本的 **`WeChatShot-v1.3.0-macOS-universal.dmg`**（或 `.zip`），同时支持 **Apple Silicon (M1/M2/M3/M4)** 与 **Intel** 芯片。
+1. 前往 [Releases](../../releases) 页面下载最新版本的 **`WeChatShot-v1.3.1-macOS-universal.dmg`**（或 `.zip`），同时支持 **Apple Silicon (M1/M2/M3/M4)** 与 **Intel** 芯片。
 2. 双击打开 `.dmg`，将 **`WeChatShot.app`** 拖入 **`Applications`（应用程序）** 文件夹。
 3. **首次打开说明（重要）**：
    由于开源免费分发未经过苹果付费开发者公证（Notarization），首次从浏览器下载打开时若遇到 macOS 提示*“无法验证开发者”*或*“已损坏”*，请在终端执行以下一行命令解除隔离属性即可正常打开：
